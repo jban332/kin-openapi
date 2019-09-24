@@ -184,10 +184,10 @@ func TestResolveSchemaExternalRef(t *testing.T) {
 			},
 		},
 	}
-	loader := &openapi3.SwaggerLoader{
-		IsExternalRefsAllowed:  true,
-		LoadSwaggerFromURIFunc: multipleSourceLoader.LoadSwaggerFromURI,
-	}
+	loader := openapi3.NewSwaggerLoader()
+	loader.IsExternalRefsAllowed = true
+	loader.LoadSwaggerFromURIFunc = multipleSourceLoader.LoadSwaggerFromURI
+
 	doc, err := loader.LoadSwaggerFromURI(rootLocation)
 	require.NoError(t, err)
 	err = doc.Validate(loader.Context)
@@ -307,10 +307,10 @@ func TestLoadFromRemoteURL(t *testing.T) {
 
 	loader := openapi3.NewSwaggerLoader()
 	loader.IsExternalRefsAllowed = true
-	url, err := url.Parse("http://" + addr + "/test.openapi.json")
+	remote, err := url.Parse("http://" + addr + "/test.openapi.json")
 	require.NoError(t, err)
 
-	swagger, err := loader.LoadSwaggerFromURI(url)
+	swagger, err := loader.LoadSwaggerFromURI(remote)
 	require.NoError(t, err)
 
 	require.Equal(t, "string", swagger.Components.Schemas["TestSchema"].Value.Type)
@@ -422,4 +422,35 @@ func TestLoadYamlFileWithExternalSchemaRef(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NotNil(t, swagger.Components.Schemas["AnotherTestSchema"].Value.Type)
+}
+
+type hitCntFS struct {
+	fs   http.Dir
+	hits map[string]int
+}
+
+func (fs hitCntFS) Open(fn string) (http.File, error) {
+	fs.hits[fn] = fs.hits[fn] + 1
+	return fs.fs.Open(fn)
+}
+
+func TestRemoteURLCaching(t *testing.T) {
+
+	sfs := hitCntFS{fs: "testdata", hits: map[string]int{}}
+	fs := http.FileServer(sfs)
+	ts := createTestServer(fs)
+	ts.Start()
+	defer ts.Close()
+
+	loader := openapi3.NewSwaggerLoader()
+	loader.IsExternalRefsAllowed = true
+	remote, err := url.Parse("http://" + addr + "/test.refcache.openapi.yml")
+	require.NoError(t, err)
+
+	_, err = loader.LoadSwaggerFromURI(remote)
+	require.NoError(t, err)
+
+	require.Contains(t, sfs.hits, "/test.refcache.openapi.yml")
+	require.Contains(t, sfs.hits, "/components.openapi.yml")
+	require.Equal(t, 1, sfs.hits["/components.openapi.yml"], "expcting 1 load of referenced schema")
 }

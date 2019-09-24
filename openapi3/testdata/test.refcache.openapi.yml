@@ -1,0 +1,15 @@
+---
+openapi: 3.0.0
+info:
+  title: 'OAI Specification w/ refs in YAML. Multiple refs to the same remote schema'
+  version: '1'
+paths: {}
+components:
+  schemas:
+    AnotherTestSchema:
+      type: object
+      properties:
+        ref1:
+          "$ref": http://localhost:7965/components.openapi.yml#/components/schemas/CustomTestSchema
+        ref2:
+          "$ref": http://localhost:7965/components.openapi.yml#/components/schemas/Name
