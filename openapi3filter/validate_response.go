@@ -4,6 +4,7 @@ package openapi3filter
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -128,6 +129,20 @@ func ValidateResponse(c context.Context, input *ResponseValidationInput) error {
 		}
 	}
 
+	if input.Options.TrimAdditionalProperties {
+		// if additionalProperties is false ,filter body
+		//if !contentType.Schema.additionalProperties
+		value = TrimAdditionalProperties(value, contentType.Schema.Value)
+		newData, err := json.Marshal(value)
+		if err != nil {
+			return &ResponseError{
+				Input:  input,
+				Reason: "reset response body error",
+				Err:    err,
+			}
+		}
+		input.SetBodyBytes(newData)
+	}
 	// Validate data with the schema.
 	if err := contentType.Schema.Value.VisitJSON(value, openapi3.VisitAsResponse()); err != nil {
 		return &ResponseError{
@@ -137,4 +152,72 @@ func ValidateResponse(c context.Context, input *ResponseValidationInput) error {
 		}
 	}
 	return nil
+}
+
+//TrimAdditionalProperties remove not allowd properties
+func TrimAdditionalProperties(value interface{}, schema *openapi3.Schema) (output interface{}) {
+	switch value := value.(type) {
+	case []interface{}:
+		return trimArray(value, schema)
+	case map[string]interface{}:
+		return trimObject(value, schema)
+	default:
+		output = value
+	}
+	return
+
+}
+
+func trimArray(value []interface{}, schema *openapi3.Schema) (output []interface{}) {
+	itemSchemaRef := schema.Items
+	if itemSchemaRef == nil {
+		output = value // if empty , return original value 
+		return
+	}
+
+	itemSchema := itemSchemaRef.Value
+	if itemSchema == nil { // return original value if schema nil
+		output = value
+		return
+	}
+
+	output = make([]interface{}, len(value))
+	for i, item := range value {
+		item = TrimAdditionalProperties(item, itemSchema)
+		output[i] = item
+	}
+	return
+}
+
+func trimObject(value map[string]interface{}, schema *openapi3.Schema) (output map[string]interface{}) {
+	output = make(map[string]interface{}, 0)
+	allowed := schema.AdditionalPropertiesAllowed
+	notAllowed := allowed != nil && !*allowed
+	properties := schema.Properties
+	if properties == nil {
+
+		if notAllowed {
+			return
+		}
+		output = value
+		return
+	}
+	for k, v := range value {
+		propertyRef, ok := properties[k]
+		if !ok { 
+			if !notAllowed { // add schema allow properties
+				output[k] = v
+			}
+			continue
+
+		}
+
+		if propertyRef.Value != nil {
+			output[k] = TrimAdditionalProperties(v, propertyRef.Value)
+		} else {
+			output[k] = v
+		}
+
+	}
+	return
 }

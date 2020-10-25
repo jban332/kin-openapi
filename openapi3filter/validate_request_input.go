@@ -25,6 +25,7 @@ type RequestValidationInput struct {
 	Route        *Route
 	Options      *Options
 	ParamDecoder ContentParameterDecoder
+	AllParams    map[string]interface{} // collect all params
 }
 
 func (input *RequestValidationInput) GetQueryParams() url.Values {

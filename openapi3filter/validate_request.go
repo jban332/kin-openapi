@@ -110,6 +110,15 @@ func ValidateParameter(c context.Context, input *RequestValidationInput, paramet
 		}
 		schema = parameter.Schema.Value
 	}
+
+	if value == nil && schema != nil {
+		value = schema.Default //set default value
+	}
+
+	if input.AllParams != nil {
+		input.AllParams[parameter.Name] = value
+	}
+
 	// Validate a parameter's value.
 	if value == nil {
 		if parameter.Required {
