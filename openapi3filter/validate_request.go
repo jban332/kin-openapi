@@ -52,7 +52,6 @@ func ValidateRequest(c context.Context, input *RequestValidationInput) error {
 		if err = ValidateParameter(c, input, parameter); err != nil && !options.MultiError {
 			return err
 		}
-
 		if err != nil {
 			me = append(me, err)
 		}
@@ -63,7 +62,6 @@ func ValidateRequest(c context.Context, input *RequestValidationInput) error {
 		if err = ValidateParameter(c, input, parameter.Value); err != nil && !options.MultiError {
 			return err
 		}
-
 		if err != nil {
 			me = append(me, err)
 		}
@@ -75,7 +73,6 @@ func ValidateRequest(c context.Context, input *RequestValidationInput) error {
 		if err = ValidateRequestBody(c, input, requestBody.Value); err != nil && !options.MultiError {
 			return err
 		}
-
 		if err != nil {
 			me = append(me, err)
 		}
@@ -92,7 +89,6 @@ func ValidateRequest(c context.Context, input *RequestValidationInput) error {
 		if err = ValidateSecurityRequirements(c, input, *security); err != nil && !options.MultiError {
 			return err
 		}
-
 		if err != nil {
 			me = append(me, err)
 		}
@@ -137,6 +133,12 @@ func ValidateParameter(c context.Context, input *RequestValidationInput, paramet
 		}
 		schema = parameter.Schema.Value
 	}
+
+	// Maybe use default value
+	if value == nil && schema != nil {
+		value = schema.Default
+	}
+
 	// Validate a parameter's value.
 	if value == nil {
 		if parameter.Required {
