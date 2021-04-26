@@ -17,7 +17,8 @@ type Options struct {
 	// status not defined in OpenAPI spec
 	IncludeResponseStatus bool
 
-	MultiError bool
+	MultiError             bool
+	FailOnUnknownParameter bool
 
 	// See NoopAuthenticationFunc
 	AuthenticationFunc AuthenticationFunc

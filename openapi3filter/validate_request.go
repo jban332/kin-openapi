@@ -59,13 +59,29 @@ func ValidateRequest(c context.Context, input *RequestValidationInput) error {
 	}
 
 	// For each parameter of the Operation
+	knownParams := map[string]bool{}
 	for _, parameter := range operationParameters {
+		knownParams[parameter.Value.Name] = true
 		if err = ValidateParameter(c, input, parameter.Value); err != nil && !options.MultiError {
 			return err
 		}
 
 		if err != nil {
 			me = append(me, err)
+		}
+	}
+
+	// Try to find unknown parameters
+	if options.FailOnUnknownParameter {
+		for name, _ := range input.GetQueryParams() {
+			if ok := knownParams[name]; !ok {
+				err = &RequestError{Input: input, Reason: "unknown request parameter",
+					Err: fmt.Errorf("description for %q is missing in scheme", name)}
+				if !options.MultiError {
+					return err
+				}
+				me = append(me, err)
+			}
 		}
 	}
 
